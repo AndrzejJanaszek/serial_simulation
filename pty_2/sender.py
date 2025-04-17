@@ -3,9 +3,9 @@ import pty
 import time
 import threading
 import serial
-import enum
+from enum import Enum
 
-class EventType(enum):
+class EventType(Enum):
     DISPENSE = 1
     FILL = 2
 
@@ -22,104 +22,108 @@ def complex_sender(arduino_master_fd, weight_master_fd):
     ]
 
     event_index = 0
-    simTime = 0
+    sTime = 0
     delay = 0.1
 
     currentValue = 1000
+    pinState = 0
 
     while 1:
-        if simTime > event_pool[event_index].timeEnd:
+        if sTime > event_pool[event_index].timeEnd:
             event_index += 1
 
         if event_index >= len(event_pool):
             print("Koniec event pool")
             break
 
+        #   set pinState and currentValue depending on currentEvent
+        pinState = 0
         if sTime >= event_pool[event_index].timeStart and sTime <= event_pool[event_index].timeEnd:
+            pinState = 1
+
             if event_pool[event_index].eventType == EventType.DISPENSE:     
                 currentValue -= event_pool[event_index].speedFactor*delay
             else:
                 currentValue += event_pool[event_index].speedFactor*delay
-            
-            os.write(master_fd, b'{"0":1}\n', "utf-8")
-        else:
-            os.write(master_fd, b'{"0":10}\n', "utf-8")
-
-
         
-
-
-        sTime += delay
-        time.sleep(delay)
-
-
-
-
-def arduino_sender(master_fd):
-    # time at which state must change
-    event_index = 0
-    event_pool = [1,3]
-    sTime = 0 # simulationTime
-    pinState = 0
-
-    delay = 0.1
-
-    while(1):
-        if event_index >= len(event_pool):
-            print("Koniec event pool")
-            break
-
-        if sTime >= event_pool[event_index]:
-            pinState = not pinState
-            event_index += 1
-
-        s = f'{{"0":{pinState}}}\n'
-        os.write(master_fd, bytes(s, "utf-8"))
+        #   send serial
+        a_s = f'{{"0":{pinState}}}\n'
+        os.write(arduino_master_fd, bytes(a_s, "utf-8"))
+        w_s = f'{{"value":{currentValue}}}\n'
+        os.write(weight_master_fd, bytes(w_s, "utf-8"))
 
         sTime += delay
         time.sleep(delay)
 
-def weight_sender(master_fd):
-    event_index = 0
-    event_pool_time = [{"start":1,"end":3}]
+# def arduino_sender(master_fd):
+#     # time at which state must change
+#     event_index = 0
+#     event_pool = [1,3]
+#     sTime = 0 # simulationTime
+#     pinState = 0
 
-    currentValue = 700
+#     delay = 0.1
 
-    sTime = 0 # simulationTime
+#     while(1):
+#         if event_index >= len(event_pool):
+#             print("Koniec event pool")
+#             break
 
-    speedFactor = 100
-    delay = 0.1
+#         if sTime >= event_pool[event_index]:
+#             pinState = not pinState
+#             event_index += 1
 
-    while(1):
-        if sTime > event_pool_time[event_index]["end"]:
-            event_index += 1
+#         s = f'{{"0":{pinState}}}\n'
+#         os.write(master_fd, bytes(s, "utf-8"))
 
-        if event_index >= len(event_pool_time):
-            print("Koniec event pool")
-            break
+#         sTime += delay
+#         time.sleep(delay)
 
-        if sTime >= event_pool_time[event_index]["start"] and sTime <= event_pool_time[event_index]["end"]:
-            currentValue -= speedFactor*delay
+# def weight_sender(master_fd):
+#     event_index = 0
+#     event_pool_time = [{"start":1,"end":3}]
 
-        s = f'{currentValue}\n'
-        os.write(master_fd, bytes(s, "utf-8"))
+#     currentValue = 700
 
-        sTime += delay
-        time.sleep(delay)
+#     sTime = 0 # simulationTime
 
-    time.sleep(0.1)
+#     speedFactor = 100
+#     delay = 0.1
 
-def run_main_program(slave_name):
+#     while(1):
+#         if sTime > event_pool_time[event_index]["end"]:
+#             event_index += 1
+
+#         if event_index >= len(event_pool_time):
+#             print("Koniec event pool")
+#             break
+
+#         if sTime >= event_pool_time[event_index]["start"] and sTime <= event_pool_time[event_index]["end"]:
+#             currentValue -= speedFactor*delay
+
+#         s = f'{currentValue}\n'
+#         os.write(master_fd, bytes(s, "utf-8"))
+
+#         sTime += delay
+#         time.sleep(delay)
+
+#     time.sleep(0.1)
+
+def read_arduino(slave_name):
     with serial.Serial(slave_name, 9600, timeout=1) as ser:
         while(1):
             ser.reset_input_buffer()
             print("Odebrano:", ser.readline().decode().strip())
 
-master_fd, slave_fd = pty.openpty()
-slave_name = os.ttyname(slave_fd)
+arduino_master_fd, arduino_slave_fd = pty.openpty()
+arduino_slave_name = os.ttyname(arduino_slave_fd)
+
+weight_master_fd, weight_slave_fd = pty.openpty()
+weight_slave_name = os.ttyname(weight_slave_fd)
 
 # Start symulacji w osobnym wątku
-threading.Thread(target=weight_sender, args=(master_fd,)).start()
+threading.Thread(target=complex_sender, args=(arduino_master_fd,weight_master_fd)).start()
+# threading.Thread(target=weight_sender, args=(weight_master_fd,)).start()
 
 # Uruchomienie programu głównego
-run_main_program(slave_name)
+read_arduino(arduino_slave_name)
