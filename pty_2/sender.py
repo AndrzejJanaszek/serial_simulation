@@ -1,0 +1,87 @@
+import os
+import pty
+import time
+import threading
+import serial
+import enum
+
+class EventType(enum):
+    DISPENSE = 1
+    FILL = 2
+
+class EventPoolObject:
+    def __init__(self):
+        self.timeStart
+        self.timeEnd
+        self.eventType : EventType
+        self.speedFactor
+        pass
+
+def arduino_sender(master_fd):
+    # time at which state must change
+    event_index = 0
+    event_pool = [1,3]
+    sTime = 0 # simulationTime
+    pinState = 0
+
+    delay = 0.1
+
+    while(1):
+        if event_index >= len(event_pool):
+            print("Koniec event pool")
+            break
+
+        if sTime >= event_pool[event_index]:
+            pinState = not pinState
+            event_index += 1
+
+        s = f'{{"0":{pinState}}}\n'
+        os.write(master_fd, bytes(s, "utf-8"))
+
+        sTime += delay
+        time.sleep(delay)
+
+def weight_sender(master_fd):
+    event_index = 0
+    event_pool_time = [{"start":1,"end":3}]
+
+    currentValue = 700
+
+    sTime = 0 # simulationTime
+
+    speedFactor = 100
+    delay = 0.1
+
+    while(1):
+        if sTime > event_pool_time[event_index]["end"]:
+            event_index += 1
+
+        if event_index >= len(event_pool_time):
+            print("Koniec event pool")
+            break
+
+        if sTime >= event_pool_time[event_index]["start"] and sTime <= event_pool_time[event_index]["end"]:
+            currentValue -= speedFactor*delay
+
+        s = f'{currentValue}\n'
+        os.write(master_fd, bytes(s, "utf-8"))
+
+        sTime += delay
+        time.sleep(delay)
+
+    time.sleep(0.1)
+
+def run_main_program(slave_name):
+    with serial.Serial(slave_name, 9600, timeout=1) as ser:
+        while(1):
+            ser.reset_input_buffer()
+            print("Odebrano:", ser.readline().decode().strip())
+
+master_fd, slave_fd = pty.openpty()
+slave_name = os.ttyname(slave_fd)
+
+# Start symulacji w osobnym wątku
+threading.Thread(target=weight_sender, args=(master_fd,)).start()
+
+# Uruchomienie programu głównego
+run_main_program(slave_name)
