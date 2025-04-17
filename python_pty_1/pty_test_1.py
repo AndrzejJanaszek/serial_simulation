@@ -28,3 +28,4 @@ threading.Thread(target=simulate_dosing, args=(master_fd,)).start()
 
 # Uruchomienie programu głównego
 run_main_program(slave_name)
+

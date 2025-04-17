@@ -10,12 +10,50 @@ class EventType(enum):
     FILL = 2
 
 class EventPoolObject:
-    def __init__(self):
-        self.timeStart
-        self.timeEnd
-        self.eventType : EventType
-        self.speedFactor
-        pass
+    def __init__(self, timeStart, timeEnd, eventType : EventType, speedFactor):
+        self.timeStart = timeStart
+        self.timeEnd = timeEnd
+        self.eventType : EventType = eventType
+        self.speedFactor = speedFactor
+
+def complex_sender(arduino_master_fd, weight_master_fd):
+    event_pool = [
+        EventPoolObject(1, 3, EventType.DISPENSE, 100)
+    ]
+
+    event_index = 0
+    simTime = 0
+    delay = 0.1
+
+    currentValue = 1000
+
+    while 1:
+        if simTime > event_pool[event_index].timeEnd:
+            event_index += 1
+
+        if event_index >= len(event_pool):
+            print("Koniec event pool")
+            break
+
+        if sTime >= event_pool[event_index].timeStart and sTime <= event_pool[event_index].timeEnd:
+            if event_pool[event_index].eventType == EventType.DISPENSE:     
+                currentValue -= event_pool[event_index].speedFactor*delay
+            else:
+                currentValue += event_pool[event_index].speedFactor*delay
+            
+            os.write(master_fd, b'{"0":1}\n', "utf-8")
+        else:
+            os.write(master_fd, b'{"0":10}\n', "utf-8")
+
+
+        
+
+
+        sTime += delay
+        time.sleep(delay)
+
+
+
 
 def arduino_sender(master_fd):
     # time at which state must change
