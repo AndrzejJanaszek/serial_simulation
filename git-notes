@@ -1,0 +1,14 @@
+### git notes
+
+`git branch <name>` \
+creates a new branch
+
+`git checkout <name>`
+or
+`git switch <name>` \
+switches brarnch
+
+`git branch -m <new-name>` \
+renames head branch (current branch) \
+`git branch -m <old-name> <new-name>` \
+renames <old-name> branch 
