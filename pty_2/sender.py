@@ -55,7 +55,7 @@ def complex_sender(arduino_master_fd, weight_master_fd):
         sTime += delay
         time.sleep(delay)
 
-# def arduino_sender(master_fd):
+# def arduino_sender(master_fd):s
 #     # time at which state must change
 #     event_index = 0
 #     event_pool = [1,3]
@@ -109,11 +109,13 @@ def complex_sender(arduino_master_fd, weight_master_fd):
 
 #     time.sleep(0.1)
 
-def read_arduino(slave_name):
-    with serial.Serial(slave_name, 9600, timeout=1) as ser:
+def read_arduino(arduino_slave_name, weight_slave_name):
+    with serial.Serial(arduino_slave_name, 9600, timeout=1) as a_ser:
+    #   end with w_ser for weight_slave_name
         while(1):
-            ser.reset_input_buffer()
-            print("Odebrano:", ser.readline().decode().strip())
+            a_ser.reset_input_buffer()
+            print("Odebrano:", a_ser.readline().decode().strip())
+            #   read data from w_ser
 
 arduino_master_fd, arduino_slave_fd = pty.openpty()
 arduino_slave_name = os.ttyname(arduino_slave_fd)
@@ -126,4 +128,4 @@ threading.Thread(target=complex_sender, args=(arduino_master_fd,weight_master_fd
 # threading.Thread(target=weight_sender, args=(weight_master_fd,)).start()
 
 # Uruchomienie programu głównego
-read_arduino(arduino_slave_name)
+read_arduino(arduino_slave_name, weight_slave_name)
