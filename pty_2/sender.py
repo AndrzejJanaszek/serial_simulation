@@ -18,9 +18,10 @@ class EventPoolObject:
 
 def complex_sender(arduino_master_fd, weight_master_fd):
     event_pool = [
-        EventPoolObject(1, 3, EventType.DISPENSE, 100)
+        EventPoolObject(1, 10, EventType.DISPENSE, 100)
     ]
 
+    # settup
     event_index = 0
     sTime = 0
     delay = 0.1
@@ -40,11 +41,9 @@ def complex_sender(arduino_master_fd, weight_master_fd):
         pinState = 0
         if sTime >= event_pool[event_index].timeStart and sTime <= event_pool[event_index].timeEnd:
             pinState = 1
+            # if despense -> speedFactor < 0
+            currentValue += event_pool[event_index].speedFactor*delay
 
-            if event_pool[event_index].eventType == EventType.DISPENSE:     
-                currentValue -= event_pool[event_index].speedFactor*delay
-            else:
-                currentValue += event_pool[event_index].speedFactor*delay
         
         #   send serial
         a_s = f'{{"0":{pinState}}}\n'
@@ -109,13 +108,23 @@ def complex_sender(arduino_master_fd, weight_master_fd):
 
 #     time.sleep(0.1)
 
-def read_arduino(arduino_slave_name, weight_slave_name):
+def read_arduino(arduino_slave_name):
+    print(arduino_slave_name)
     with serial.Serial(arduino_slave_name, 9600, timeout=1) as a_ser:
     #   end with w_ser for weight_slave_name
         while(1):
             a_ser.reset_input_buffer()
-            print("Odebrano:", a_ser.readline().decode().strip())
-            #   read data from w_ser
+            print("[A]: Odebrano:", a_ser.readline().decode().strip())
+            time.sleep(.6)
+
+
+def read_weights(weight_slave_name):
+    with serial.Serial(weight_slave_name, 9600, timeout=1) as a_ser:
+        while(1):
+            a_ser.reset_input_buffer()
+            print("\t\t\t[W]: Odebrano:", a_ser.readline().decode().strip())
+            time.sleep(.6)
+
 
 arduino_master_fd, arduino_slave_fd = pty.openpty()
 arduino_slave_name = os.ttyname(arduino_slave_fd)
@@ -123,9 +132,11 @@ arduino_slave_name = os.ttyname(arduino_slave_fd)
 weight_master_fd, weight_slave_fd = pty.openpty()
 weight_slave_name = os.ttyname(weight_slave_fd)
 
-# Start symulacji w osobnym wątku
+
 threading.Thread(target=complex_sender, args=(arduino_master_fd,weight_master_fd)).start()
+threading.Thread(target=read_arduino, args=(arduino_slave_name, )).start()
+threading.Thread(target=read_weights, args=(weight_slave_name, )).start()
 # threading.Thread(target=weight_sender, args=(weight_master_fd,)).start()
 
 # Uruchomienie programu głównego
-read_arduino(arduino_slave_name, weight_slave_name)
+# read_arduino(arduino_slave_name)
